@@ -1,0 +1,30 @@
+package com.finalProject.model.admin.order;
+
+import java.util.Date;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+import lombok.ToString;
+
+@ToString
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+@Setter
+@Getter
+
+public class AdminCancleVO {
+	private int cancel_no;
+	private String order_id;
+	private int order_product_no;
+	private Date cancel_apply_date;
+	private Date cancel_complete_date;
+	private Date cancel_retract_date;
+	private String cancel_type;
+	private String cancel_status;
+	private String cancel_reason;
+
+}

@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.finalProject.mappers.cartMapper">
+	<insert id="insertCart">
+		insert into carts (member_id) values(#{memberId})
+	</insert>
+	
+	<select id="selectCartNoByMemberId" resultType="Integer">
+		select cart_no from carts where member_id = #{memberId}
+	</select>
+	
+	<select id="selectCartItems" resultType="com.finalProject.model.cart.CartDTO">
+		select p.product_no, p.product_name, p.product_price, p.product_dc_type, p.dc_rate, i.image_url, c.cart_no, c.product_count, c.cart_item_no, t.category_name 
+		from products p 
+		inner join cart_items c 
+		on p.product_no = c.product_no
+		left join product_images i 
+		on p.product_no = i.product_no and i.image_type = "M" 
+		inner join categories t 
+		on p.product_category = t.category_no 
+		where c.cart_no = #{cartNo}
+	</select>
+	
+	<update id="updateQuantity">
+		update cart_items set product_count = #{quantity} 
+		where product_no = #{productNo} 
+		and cart_no = 
+		(select cart_no from carts
+		 where member_id = #{memberId})
+	</update>
+	
+	<delete id="deleteCartItem">
+	    delete from cart_items 
+	    where cart_no = (select cart_no from carts where member_id = #{memberId}) 
+	    and product_no in 
+	    <foreach item="productNo" collection="productNos" open="(" separator="," close=")">
+	        #{productNo}
+	    </foreach>
+	</delete>
+	
+	<insert id="insertCartItem">
+		insert into cart_items (cart_no, product_no, product_count) values (#{cartNo}, #{productNo}, #{quantity})
+	</insert>
+	
+	<select id="selectCountItemByProductNo" resultType="Integer">
+		select count(*) from cart_items where product_no = #{productNo} and cart_no = #{cartNo}
+	</select>
+	
+	<update id="updateQuantityFromAddItem">
+		update cart_items set product_count = product_count + #{quantity} 
+		where product_no = #{productNo} 
+		and cart_no = 
+		#{cartNo}
+	</update>
+	
+	<select id="selectCntCartItem" resultType="Integer">
+		select count(*) from cart_items where cart_no = #{cartNo}
+	</select>
+	
+	<select id="selectLevelInfoOfMemberId" resultType="com.finalProject.model.cart.CartMemberLevelDTO">
+		select l.level_name, l.level_dc, l.level_point from levels l inner join members m on member_level = level_no where member_id = #{memberId}
+	</select>
+	
+	<select id="selectProductInfoByCookie" resultType="com.finalProject.model.cart.CookieCartDTO">
+		select p.product_no, p.product_name, p.product_dc_type, p.dc_rate, p.product_price, i.image_url, t.category_name 
+		from products p 
+		left join product_images i on p.product_no = i.product_no and i.image_type = "M" 
+		inner join categories t on p.product_category = t.category_no 
+		where p.product_no = #{productNo}
+	</select>
+	
+	<update id="updateQuantityWithCookieCart">
+		update cart_items set product_count = product_count + #{quantity} where cart_no = #{cartNo} and product_no = #{productNo}
+	</update>
+	
+	<select id="selectProductNoOfCartList" resultType="Integer">
+		select product_no from cart_items where cart_no = #{cartNo}
+	</select>
+</mapper>
