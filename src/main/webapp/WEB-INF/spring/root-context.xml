@@ -23,21 +23,36 @@
 	<context:property-placeholder location="classpath:application.properties" />
 
 	<!-- 데이터베이스 Connection -->
+	<!-- 부하 테스트용 -->
+	<!-- 
+	<bean id="dataSource" class="org.springframework.jdbc.datasource.DriverManagerDataSource"> 
+		<property name="driverClassName" value="com.mysql.cj.jdbc.Driver"> </property> 
+		<property name="url" value="jdbc:mysql://db:3306/my?useUnicode=true&amp;serverTimezone=Asia/Seoul&amp;characterEncoding=UTF-8&amp;useSSL=false&amp;allowPublicKeyRetrieval=true"></property> 
+		<property name="username" value="root"></property> 
+		<property name="password" value="1234"></property> 
+	</bean>
+	-->
+	
+	
+	<!-- 개발용 -->
+	
 	<bean id="dataSource" class="org.springframework.jdbc.datasource.DriverManagerDataSource"> 
 		<property name="driverClassName" value="com.mysql.cj.jdbc.Driver"> </property> 
 		<property name="url" value="jdbc:mysql://localhost:3306/my?serverTimezone=Asia/Seoul&amp;characterEncoding=UTF-8&amp;useSSL=false"></property> 
 		<property name="username" value="root"></property> 
 		<property name="password" value="1234"></property> 
 	</bean>
-
-	<!--  
+	
+	
+	<!-- 배포용 -->
+	<!-- 
 	<bean id="dataSource"
 		class="org.springframework.jdbc.datasource.DriverManagerDataSource">
 		<property name="driverClassName"
 			value="org.mariadb.jdbc.Driver">
 		</property>
 		<property name="url"
-			value="jdbc:mariadb://localhost:3306/aabbcc1121?serverTimezone=Asia/Seoul&amp;characterEncoding=UTF-8&amp;useSSL=false&amp;allowPublicKeyRetrieval=true">
+			value="jdbc:mariadb://localhost:3306/whygari4321?serverTimezone=Asia/Seoul&amp;characterEncoding=UTF-8&amp;useSSL=false&amp;allowPublicKeyRetrieval=true">
 		</property>
 		<property name="username" value="${dist.db.username}"></property>
 		<property name="password" value="${dist.db.password}"></property>
@@ -71,7 +86,9 @@
 	
 	<!-- 작업스케줄러를 annotation방식으로 처리함  -->
 	<task:annotation-driven/>
-
+	
+	<context:component-scan
+		base-package="com.finalProject.payment" />
 	<context:component-scan
 		base-package="com.finalProject.persistence" />
 	<context:component-scan

@@ -46,18 +46,19 @@
 <html>
 <head>
 <script>
-let data;
-function showToast(title, content) {
-	$('#toastTitle').text(title); // 토스트 메시지 제목
-    $('#toastBody').text(content); // 토스트 메시지 내용
-    
-    var toastElement = $('#toastMessage');
-    toastElement.removeClass('hide').addClass('show');
-	$("#modalToggle").modal('hide'); // 모달이름
-	 setTimeout(function() {
-		 toastElement.hide();
-       }, 2000);
-} 
+	let data;
+	function showToast(title, content) {
+		$('#toastTitle').text(title); // 토스트 메시지 제목
+	    $('#toastBody').text(content); // 토스트 메시지 내용
+	    
+	    var toastElement = $('#toastMessage');
+	    toastElement.removeClass('hide').addClass('show');
+		$("#modalToggle").modal('hide'); // 모달이름
+		 setTimeout(function() {
+			 toastElement.hide();
+	       }, 2000);
+	}
+	
 	function showCancelList(pageNo) {
 		console.log(pageNo);
 		let pagingSize =10;
@@ -70,39 +71,36 @@ function showToast(title, content) {
 		let cancel_apply_date_start = $('input[name="cancel_apply_date_start"]').val();
 		let cancel_apply_date_end = $('input[name="cancel_apply_date_end"]').val();
 		if(data == null) {
-		Pagingdata = {
+			Pagingdata = {
 		        pageNo: pageNo,
 		        pagingSize: pagingSize,
 		        cancel_type: cancel_type,
 		        cancel_status: cancel_status,
 		        cancel_apply_date_start: cancel_apply_date_start,
 		        cancel_apply_date_end: cancel_apply_date_end
-		    };
+			};
 		} else {
 			Pagingdata = {
-			        pageNo: pageNo,
-			        pagingSize: pagingSize,
-			        cancel_type: data.cancel_type,
-			        cancel_status: data.cancel_status,
-			        cancel_apply_date_start: data.cancel_apply_date_start,
-			        cancel_apply_date_end: data.cancel_apply_date_end
-			    };
+		        pageNo: pageNo,
+		        pagingSize: pagingSize,
+		        cancel_type: data.cancel_type,
+		        cancel_status: data.cancel_status,
+		        cancel_apply_date_start: data.cancel_apply_date_start,
+		        cancel_apply_date_end: data.cancel_apply_date_end
+			};
 		}
+		
 		$.ajax({
-			 url: '/admin/order/searchFilter',
-		        type: 'POST',
-		        contentType: 'application/json' ,
-		        data: JSON.stringify(Pagingdata),
-		    	success: function(data) {
+			url: '/admin/order/searchFilter',
+	        type: 'POST',
+	        contentType: 'application/json' ,
+	        data: JSON.stringify(Pagingdata),
+	    	success: function(data) {
 		    	let output = "";
 			    
-
 		        $.each(data.CancelList, function(index, cancel) {
-	
 					let isDisabled = (cancel.cancel_status === '취소 완료' || cancel.cancel_status === '취소 철회') ? 'disabled' : '';
-		          
 		            output += '<tr>' +
-		                
 		                '<td>' + cancel.cancel_no + '</td>' +      
 		                '<td>' + cancel.order_product_no + '</td>' +
 		                '<td id="cancelOrderId">' + cancel.order_id + '</td>' +
@@ -124,9 +122,8 @@ function showToast(title, content) {
 		        console.error(error); // 에러가 발생한 경우 콘솔에 에러 출력
 		    }
 		});
-	  
-	    
-	 }
+	}
+	
 	function PageNation(data) {
 	    if (data.CancelList && data.CancelList.length !== 0) {
 	        let paginationOutput = "";
@@ -157,7 +154,8 @@ function showToast(title, content) {
 	    	$('.pagination').html("");
 	    }
 	}
-	function restractBtn(cancelNo,orderId) {
+	
+	function restractBtn(cancelNo, orderId) {
 		console.log(cancelNo);
 		console.log(orderId)
 		 $.ajax({
@@ -167,7 +165,7 @@ function showToast(title, content) {
 			data : {
 				cancelNo : cancelNo
 			} ,
-			 success: function(response) {
+			success: function(response) {
 				 console.log(response);
 				 $.ajax({
 	                    url: '/admin/order/showListByOrderId', // 서버 URL
@@ -218,24 +216,25 @@ function showToast(title, content) {
 	                    error: function(error) {
 	                        console.error(error);  // 에러 시 콘솔에 에러 출력
 	                    }
-	                });
+				}); // ajax end
 	       },
-	         error: function(error) {
-	              console.error(error);  // 에러 시 에러 출력
+	       error: function(error) {
+				console.error(error);  // 에러 시 에러 출력
 	       }
-		}) 
-	}
-	function restractBtn2(cancelNo,orderId) {
+		}) // ajax end
+	} // function end
+	
+	function restractBtn2(cancelNo, orderId) {
 			console.log(cancelNo);
 			console.log(orderId)
-			 $.ajax({
+			$.ajax({
 				url : '/admin/order/restractCancelNo' ,
 				type : 'POST',
 				dataType : 'text' ,
 				data : {
 					cancelNo : cancelNo
 				} ,
-				 success: function(response) {
+				success: function(response) {
 					 console.log(response);
 					 $.ajax({
 		                    url: '/admin/order/showListByOrderId', // 서버 URL
@@ -294,89 +293,64 @@ function showToast(title, content) {
 		                    error: function(error) {
 		                        console.error(error);  // 에러 시 콘솔에 에러 출력
 		                    }
-		                });
+						}); // ajax end
 		       },
-		         error: function(error) {
-		              console.error(error);  // 에러 시 에러 출력
+		       error: function(error) {
+					console.error(error);  // 에러 시 에러 출력
 		       }
-			}) 
-		}
+			}) // ajax end
+	} // function end
 	
 	$(document).ready(function() { 
-			
-		    function modifyCancelStatus(amount, cancelList, paymentNo,cancelType,assigned_point) {
-		    	console.log("===== modifyCancelStatus() 실행 중, data :  =====");
-		        let data = {
-		            amount: amount,
-		            cancelList: cancelList,
-		            paymentNo: paymentNo,
-		            cancelType: cancelType,
-		            assigned_point : assigned_point
-		        };
-		        console.log(data);
-		        console.log("===== modifyCancelStatus() 실행 중, data END =====");
+	    function modifyCancelStatus(amount, cancelList, paymentNo,cancelType,assigned_point) {
+	    	console.log("===== modifyCancelStatus() 실행 중, data :  =====");
+	        let data = {
+	            amount: amount,
+	            cancelList: cancelList,
+	            paymentNo: paymentNo,
+	            cancelType: cancelType,
+	            assigned_point : assigned_point
+	        };
+	        console.log(data);
+	        console.log("===== modifyCancelStatus() 실행 중, data END =====");
 
-		        $.ajax({
-		            url: '/admin/order/modifyStatus',
-		            type: 'POST',
-		            dataType: 'json',
-		            contentType: 'application/json',
-		            data: JSON.stringify(data),  // data 객체를 JSON 형식으로 문자열화하여 전송
-		            success: function(response) {
-		            	console.log("----- POST /admin/order/modifyStatus의 결과 : -----")
-		            	console.log(data);
-		            	console.log("----- POST /admin/order/modifyStatus의 결과 END -----")
-		            },
-		            error: function(error) {
-		                console.error(error);  // 에러 시 에러 출력
-		            }
-		        });
-		    }
+	        $.ajax({
+	            url: '/admin/order/modifyStatus',
+	            type: 'POST',
+	            dataType: 'json',
+	            contentType: 'application/json',
+	            data: JSON.stringify(data),  // data 객체를 JSON 형식으로 문자열화하여 전송
+	            success: function(response) {
+	            	console.log("----- POST /admin/order/modifyStatus의 결과 : -----")
+	            	console.log(data);
+	            	console.log("----- POST /admin/order/modifyStatus의 결과 END -----")
+	            },
+	            error: function(error) {
+	                console.error(error);  // 에러 시 에러 출력
+	            }
+	        });
+	    }
 
 		function tossCancelRequest(paymentKey, cancelReason, amount = 0, cancelList, paymentNo, cancelType, assigned_point) {
-			let encodedSecretKey = null
-			let cancelResponse = null
-			
-			// encodedSecretKey 취득
-			$.ajax({
-				async: false,
-				url: '/order/tossSecretKey',
-				type: 'GET',
-				dataType: "json",
-				success: function(response) {
-					encodedSecretKey = response.encodedSecretKey
-					console.log("encodedSecretKey : " + encodedSecretKey)
-				},
-				error: function(xhr, status, error) {
-					console.error(`Error: , `);
-				   console.error(xhr.responseText);
-				}
-			})
-			
-			if (cancelReason == null) {
-				cancelReason = ''
-			}
 			let requestObj = {
 				 cancelReason: cancelReason,
+				 paymentKey: paymentKey
 			}
 			if (amount != null) {
 				requestObj.cancelAmount = amount
 			}
-			
 			$.ajax({
 				 async: false,
-				 url: `https://api.tosspayments.com/v1/payments/\${paymentKey}/cancel`,
+				 url: '/order/tossPaymentsCancel',
 				 method: 'POST',
-				 headers: {
-				   'Authorization': `Basic \${encodedSecretKey}`,
-				   'Content-Type': 'application/json',
-				 },
+				 contentType: "application/json",
+				 dataType: 'json',
 				 data: JSON.stringify(requestObj),
 				 success: function(response) {
 					cancelResponse = response;
-					console.log("===== tossCancelRequest()의 response =====");
+					console.log("===== /order/tossPaymentsCancel의 response =====");
 					console.log(response);
-					console.log("===== tossCancelRequest()의 END =====");
+					console.log("===== /order/tossPaymentsCancel의 END =====");
 			
 					modifyCancelStatus(amount,cancelList,paymentNo,cancelType,assigned_point);
 				 },
@@ -386,174 +360,173 @@ function showToast(title, content) {
 				   showToast("상품 환불","실패하였습니다");
 				 }
 			});
-			return cancelResponse
 		}
 			
-			function kakaopayCancelRequest(paymentId, cancelReason, amount,cancelList,paymentNo,cancelType,assigned_point) {
-				let response = null
-				$.ajax({
-					async: false,
-					url: "/order/KakaoPayCancel",
-					type: "POST",
-					contentType: "application/json",
-					dataType: 'json',
-					data: JSON.stringify({
-						paymentId: paymentId,
-						amount: "" + amount,
-						cancelReason: cancelReason,
-					}),
-					success: function(res) {
-						response = res.response
-						console.log(res);
+		function kakaopayCancelRequest(paymentId, cancelReason, amount, cancelList, paymentNo, cancelType, assigned_point) {
+			let response = null
+			$.ajax({
+				async: false,
+				url: "/order/KakaoPayCancel",
+				type: "POST",
+				contentType: "application/json",
+				dataType: 'json',
+				data: JSON.stringify({
+					paymentId: paymentId,
+					amount: "" + amount,
+					cancelReason: cancelReason,
+				}),
+				success: function(res) {
+					response = res.response
+					console.log(res);
+					modifyCancelStatus(amount, cancelList, paymentNo, cancelType, assigned_point);
+				},
+				error: function(xhr, status, error) {
+					console.error(`Error: , `);
+					console.error(xhr.responseText);
+					showToast("상품 환불","실패하였습니다");
+				}
+			});
+			return JSON.parse(response)
+		}
 		
-						modifyCancelStatus(amount,cancelList,paymentNo,cancelType,assigned_point);
-					},
-					error: function(xhr, status, error) {
-						console.error(`Error: , `);
-						console.error(xhr.responseText);
-						showToast("상품 환불","실패하였습니다");
-					}
+	    function naverpayCancelRequest(paymentId, cancelReason, amount, cancelList, paymentNo, cancelType, assigned_point) {
+			let response = null
+			$.ajax({
+				async: false,
+				url: "/order/NaverPayCancel",
+				type: "POST",
+				contentType: "application/json",
+				dataType: 'json',
+				data: JSON.stringify({
+					paymentId: paymentId,
+					amount: "" + amount,
+					cancelReason: cancelReason,
+				}),
+				success: function(res) {
+					response = res.response
+					console.log(res);
+		
+					modifyCancelStatus(amount,cancelList,paymentNo,cancelType,assigned_point);
+				},
+				error: function(xhr, status, error) {
+					console.error(`Error: , `);
+					console.error(xhr.responseText);
+					showToast("상품 환불","실패하였습니다");
+				}
+			});
+			return JSON.parse(response)
+		}
+			
+	    $("#modifyCancel").on('show.bs.modal', function (event) {
+	    	let button = $(event.relatedTarget); 
+
+	        // 버튼의 부모 요소에서 #cancelOrderId 찾기
+	        let cancelOrderId = button.closest('tr').find("#cancelOrderId").text();
+	        $("#ListContainer").empty();
+	        console.log(cancelOrderId);
+			$.ajax({
+				url: '/admin/order/showListByOrderId', // 서버 URL
+				type: 'POST',
+				contentType: 'application/x-www-form-urlencoded',
+				data: { orderId: cancelOrderId },
+				success: function(data) {
+					let cancelList = data.orderIdList; // 서버에서 z받은 cancel 리스트
+					let cancelListContainer = ""; // 모달의 리스트를 담을 요소
+					console.log(cancelList);
+
+					 // 테이블 형식으로 데이터 표시
+					cancelListContainer +=  '<table class="table"><thead><tr>' +
+					             '<th>취소 번호</th>' +
+					             '<th>주문 아이디</th>' +
+					             '<th>상품 번호</th>' +
+					             '<th>취소 신청일</th>' +
+					             '<th>취소 완료일</th>' +
+					             '<th>취소 철회일</th>' +
+					             '<th>취소 유형</th>' +
+					             '<th>취소 상태</th>' +
+					             '<th>취소 사유</th>' +
+					         '</tr>' + '</thead>';
+			            
+					cancelListContainer += '<tbody class="table-border-bottom-0">';
+					cancelList.forEach(function (e) {
+	 					cancelListContainer += 
+						  '<tr>' +
+						      '<td class = "modalCancelNo">' + e.cancel_no + '</td>' +              
+						      '<td class = "modalOrderProductNo">' + e.order_product_no + '</td>' +
+						      '<td>' + e.order_id + '</td>' +
+						      '<td>' + new Date(e.cancel_apply_date).toLocaleString() + '</td>' +
+						      '<td>' + (e.cancel_complete_date ? new Date(e.cancel_complete_date).toLocaleString() : '없음') + '</td>' +
+						      '<td>' + (e.cancel_retract_date ? new Date(e.cancel_retract_date).toLocaleString() : '없음') + '</td>' +
+						      '<td>' + e.cancel_type + '</td>' +
+						      '<td>' + e.cancel_status + '</td>' +
+						      '<td>' + e.cancel_reason + '</td>' +
+						      '<td><div class="mt-3">' +
+						'<button type="button" class="btn rounded-pill btn-outline-primary" onclick = "restractBtn2(' + e.cancel_no + ', \'' + e.order_id + '\')">철회 처리</button>' +
+						'</div></td>' + '</tr>';
+			        });
+
+	                cancelListContainer += '</tbody>';
+	                cancelListContainer += '</table>'; 
+			        $("#ListContainer").html(cancelListContainer);
+			        },
+				error: function(error) {
+					console.error(error);
+				}
+			});
+			
+			$("#confirmDeleteBtn2").off('click').on('click', function() {
+				let orderProductList = [];
+				let cancelList = [];
+				$(".modalOrderProductNo").each(function() {
+				  orderProductList.push($(this).text());  
 				});
-				return JSON.parse(response)
-			}
-		    function naverpayCancelRequest(paymentId, cancelReason, amount,cancelList,paymentNo,cancelType,assigned_point) {
-				let response = null
+				$(".modalCancelNo").each(function() {
+				  cancelList.push($(this).text());  
+				});
+				console.log(orderProductList);
+				console.log(cancelList);
 				$.ajax({
-					async: false,
-					url: "/order/NaverPayCancel",
-					type: "POST",
-					contentType: "application/json",
-					dataType: 'json',
+					url: '/admin/order/cancelOrder', // 서버 URL
+					type: 'POST',
+					contentType: 'application/json' ,
 					data: JSON.stringify({
-						paymentId: paymentId,
-						amount: "" + amount,
-						cancelReason: cancelReason,
+						list: orderProductList
 					}),
-					success: function(res) {
-						response = res.response
-						console.log(res);
-			
-						modifyCancelStatus(amount,cancelList,paymentNo,cancelType,assigned_point);
+					success: function(data) {
+						console.log(typeof data.paid_amount);
+						console.log(typeof data.payment_module_key);
+					    console.log("=====POST /admin/order/cancelOrder 요청시 돌려받은 data :  ======");
+					    console.log(data)
+					    console.log("=====POST /admin/order/cancelOrder 요청시 돌려받은 data END ======");
+					    $('#toastTitle').text("환불이 성공!"); // 토스트 메시지 제목
+					    $('#toastBody').text("환불 완료 되었습니다"); // 토스트 메시지 내용
+					    
+					    var toastElement = $('#toastMessage');
+					    toastElement.removeClass('hide').addClass('show');
+						 setTimeout(function() {
+							 toastElement.hide();
+							 $("#modifyCancel").modal('hide'); // 모달이름
+					       }, 2000);
+						
+					    let canelReason = data.cancel_reason.replace(" ", "").trim();
+					    console.log(canelReason);
+					    
+					    if (data.payment_method == 'T') {
+					    	tossCancelRequest(data.payment_module_key, data.cancel_reason, data.paid_amount, cancelList, data.payment_no, data.cancel_type, data.assigned_point);
+					    } else if (data.payment_method == 'K') {
+					    	kakaopayCancelRequest(data.payment_module_key, data.canelReason, data.paid_amount, cancelList, data.payment_no, data.cancel_type, data.assigned_point);
+					    } else if (data.payment_method == 'N') {
+					    	naverpayCancelRequest(data.payment_module_key, data.cancel_reason, data.paid_amount, cancelList, data.payment_no, data.cancel_type, data.assigned_point);
+					    }  
 					},
-					error: function(xhr, status, error) {
-						console.error(`Error: , `);
-						console.error(xhr.responseText);
-						showToast("상품 환불","실패하였습니다");
+					error: function(error) {
+					    console.error(error); // 에러 시 콘솔에 에러 출력
 					}
-				});
-				return JSON.parse(response)
-			}
-			
-		    $("#modifyCancel").on('show.bs.modal', function (event) {
-		    	let button = $(event.relatedTarget); 
-
-		        // 버튼의 부모 요소에서 #cancelOrderId 찾기
-		        let cancelOrderId = button.closest('tr').find("#cancelOrderId").text();
-		        $("#ListContainer").empty();
-		        console.log(cancelOrderId);
-				 $.ajax({
-				        url: '/admin/order/showListByOrderId', // 서버 URL
-				        type: 'POST',
-				        contentType: 'application/x-www-form-urlencoded',
-				        data: { orderId: cancelOrderId },
-				        success: function(data) {
-				            let cancelList = data.orderIdList; // 서버에서 z받은 cancel 리스트
-				            let cancelListContainer = ""; // 모달의 리스트를 담을 요소
-				            console.log(cancelList);
-
-				            // 테이블 형식으로 데이터 표시
-				           cancelListContainer +=  '<table class="table"><thead><tr>' +
-				                        '<th>취소 번호</th>' +
-				                        '<th>주문 아이디</th>' +
-				                        '<th>상품 번호</th>' +
-				                        '<th>취소 신청일</th>' +
-				                        '<th>취소 완료일</th>' +
-				                        '<th>취소 철회일</th>' +
-				                        '<th>취소 유형</th>' +
-				                        '<th>취소 상태</th>' +
-				                        '<th>취소 사유</th>' +
-				                    '</tr>' +
-				                '</thead>';
-				            
-				                cancelListContainer += '<tbody class="table-border-bottom-0">';
-				            cancelList.forEach(function (e) {
-				                cancelListContainer += 
-				                    '<tr>' +
-				                        '<td class = "modalCancelNo">' + e.cancel_no + '</td>' +              
-				                        '<td class = "modalOrderProductNo">' + e.order_product_no + '</td>' +
-				                        '<td>' + e.order_id + '</td>' +
-				                        '<td>' + new Date(e.cancel_apply_date).toLocaleString() + '</td>' +
-				                        '<td>' + (e.cancel_complete_date ? new Date(e.cancel_complete_date).toLocaleString() : '없음') + '</td>' +
-				                        '<td>' + (e.cancel_retract_date ? new Date(e.cancel_retract_date).toLocaleString() : '없음') + '</td>' +
-				                        '<td>' + e.cancel_type + '</td>' +
-				                        '<td>' + e.cancel_status + '</td>' +
-				                        '<td>' + e.cancel_reason + '</td>' +
-				                        '<td><div class="mt-3">' +
-						                '<button type="button" class="btn rounded-pill btn-outline-primary" onclick = "restractBtn2(' + e.cancel_no + ', \'' + e.order_id + '\')">철회 처리</button>' +
-						                '</div></td>' +
-				                    '</tr>';
-				            });
-
-				                cancelListContainer += '</tbody>';
-				                cancelListContainer += '</table>'; 
-				                $("#ListContainer").html(cancelListContainer);
-				        },
-				        error: function(error) {
-				            console.error(error);
-				        }
-				    }); 
-				 $("#confirmDeleteBtn2").off('click').on('click', function() {
-					 let orderProductList = [];
-					  let cancelList = [];
-					  $(".modalOrderProductNo").each(function() {
-						  orderProductList.push($(this).text());  
-						});
-					  
-					  $(".modalCancelNo").each(function() {
-						  cancelList.push($(this).text());  
-						});
-			        console.log(orderProductList);
-			        console.log(cancelList);
-				        $.ajax({
-				            url: '/admin/order/cancelOrder', // 서버 URL
-				            type: 'POST',
-				            contentType: 'application/json' ,
-				            data: JSON.stringify({
-				            	list: orderProductList
-				            }),
-				            success: function(data) {
-				            	console.log(typeof data.paid_amount);
-				            	console.log(typeof data.payment_module_key);
-				                console.log("=====POST /admin/order/cancelOrder 요청시 돌려받은 data :  ======");
-				                console.log(data)
-				                console.log("=====POST /admin/order/cancelOrder 요청시 돌려받은 data END ======");
-				                $('#toastTitle').text("환불이 성공!"); // 토스트 메시지 제목
-				                $('#toastBody').text("환불 완료 되었습니다"); // 토스트 메시지 내용
-				                
-				                var toastElement = $('#toastMessage');
-				                toastElement.removeClass('hide').addClass('show');
-				            	 setTimeout(function() {
-				            		 toastElement.hide();
-				            		 $("#modifyCancel").modal('hide'); // 모달이름
-				                   }, 2000);
-				            	
-				                let canelReason = data.cancel_reason.replace(" ", "").trim();
-				                console.log(canelReason);
-				                
-				                if(data.payment_method == 'T') {
-				                	tossCancelRequest(data.payment_module_key, data.cancel_reason, data.paid_amount, cancelList,data.payment_no,data.cancel_type,data.assigned_point);
-				                } else if (data.payment_method == 'K') {
-				                	kakaopayCancelRequest(data.payment_module_key, data.canelReason, data.paid_amount,cancelList,data.payment_no,data.cancel_type,data.assigned_point);
-				                } else if (data.payment_method == 'N') {
-				                	naverpayCancelRequest(data.payment_module_key, data.cancel_reason, data.paid_amount,cancelList,data.payment_no,data.cancel_type,data.assigned_point);
-				                }  
-				            },
-				            error: function(error) {
-				                console.error(error); // 에러 시 콘솔에 에러 출력
-				            }
-				        });
-				     });
-		    });
+				}); // ajax end
+			});
+		}); // $("#modifyCancel").on end
+	    
+	    
 		/*     $(".modifyCancelConfirm").on('click',function() {
 		    	let cancelNo = parseInt($("#cancelsCancelNo").text().trim());
 		    	
@@ -583,117 +556,114 @@ function showToast(title, content) {
 			            }
 			        });
 		    }) */
-	$('#modalToggle2').on('show.bs.modal', function (event) {
-    let button = $(event.relatedTarget);
-    let orderId = button.parent().find("#orderId").text().replace("주문 아이디 :", "").trim();
-    console.log(orderId);
-    $("#cancelListContainer").empty();
-    $.ajax({
-        url: '/admin/order/showListByOrderId', // 서버 URL
-        type: 'POST',
-        contentType: 'application/x-www-form-urlencoded',
-        data: { orderId: orderId },
-        success: function(data) {
-            let cancelList = data.orderIdList; // 서버에서 z받은 cancel 리스트
-            
-            let cancelListContainer = ""; // 모달의 리스트를 담을 요소
-            console.log(cancelList);
+		$('#modalToggle2').on('show.bs.modal', function (event) {
+	    	let button = $(event.relatedTarget);
+	    	let orderId = button.parent().find("#orderId").text().replace("주문 아이디 :", "").trim();
+	    	console.log(orderId);
+	    	$("#cancelListContainer").empty();
+	    	$.ajax({
+		        url: '/admin/order/showListByOrderId', // 서버 URL
+		        type: 'POST',
+		        contentType: 'application/x-www-form-urlencoded',
+		        data: { orderId: orderId },
+		        success: function(data) {
+		            let cancelList = data.orderIdList; // 서버에서 z받은 cancel 리스트
+		            
+		            let cancelListContainer = ""; // 모달의 리스트를 담을 요소
+		            console.log(cancelList);
+	
+		            // 테이블 형식으로 데이터 표시
+		           	cancelListContainer +=  '<table class="table"><thead><tr>' +
+		                        '<th>취소 번호</th>' +
+		                        '<th>주문 아이디</th>' +
+		                        '<th>상품 번호</th>' +
+		                        '<th>취소 신청일</th>' +
+		                        '<th>취소 완료일</th>' +
+		                        '<th>취소 철회일</th>' +
+		                        '<th>취소 유형</th>' +
+		                        '<th>취소 상태</th>' +
+		                        '<th>취소 사유</th>' +
+		                    '</tr>' + '</thead>';
+	            
+					cancelListContainer += '<tbody class="table-border-bottom-0">';
+					cancelList.forEach(function (e) {
+		                cancelListContainer += 
+		                    '<tr>' +
+		                        '<td class = "modalCancelNo">' + e.cancel_no + '</td>' +
+		                       
+		                        '<td class = "modalOrderProductNo">' + e.order_product_no + '</td>' +
+		                        '<td>' + e.order_id + '</td>' +
+		                        '<td>' + new Date(e.cancel_apply_date).toLocaleString() + '</td>' +
+		                        '<td>' + (e.cancel_complete_date ? new Date(e.cancel_complete_date).toLocaleString() : '없음') + '</td>' +
+		                        '<td>' + (e.cancel_retract_date ? new Date(e.cancel_retract_date).toLocaleString() : '없음') + '</td>' +
+		                        '<td>' + e.cancel_type + '</td>' +
+		                        '<td>' + e.cancel_status + '</td>' +
+		                        '<td>' + e.cancel_reason + '</td>' +
+		                        '<td><div class="mt-3">' +
+				                '<button type="button" class="btn rounded-pill btn-outline-primary" onclick = "restractBtn(' + e.cancel_no + ', \'' + e.order_id + '\')">철회 처리</button>' +
+				                '</div></td>' + '</tr>';
+	           		});
+	                cancelListContainer += '</tbody>';
+	                cancelListContainer += '</table>'; 
+	            	$("#cancelListContainer").html(cancelListContainer);
+	        	},
+		        error: function(error) {
+		            console.error(error);
+		        }
+	    	}); // ajax end
 
-            // 테이블 형식으로 데이터 표시
-           cancelListContainer +=  '<table class="table"><thead><tr>' +
-                        '<th>취소 번호</th>' +
-                        '<th>주문 아이디</th>' +
-                        '<th>상품 번호</th>' +
-                        '<th>취소 신청일</th>' +
-                        '<th>취소 완료일</th>' +
-                        '<th>취소 철회일</th>' +
-                        '<th>취소 유형</th>' +
-                        '<th>취소 상태</th>' +
-                        '<th>취소 사유</th>' +
-                    '</tr>' +
-                '</thead>';
-            
-                cancelListContainer += '<tbody class="table-border-bottom-0">';
-            cancelList.forEach(function (e) {
-                cancelListContainer += 
-                    '<tr>' +
-                        '<td class = "modalCancelNo">' + e.cancel_no + '</td>' +
-                       
-                        '<td class = "modalOrderProductNo">' + e.order_product_no + '</td>' +
-                        '<td>' + e.order_id + '</td>' +
-                        '<td>' + new Date(e.cancel_apply_date).toLocaleString() + '</td>' +
-                        '<td>' + (e.cancel_complete_date ? new Date(e.cancel_complete_date).toLocaleString() : '없음') + '</td>' +
-                        '<td>' + (e.cancel_retract_date ? new Date(e.cancel_retract_date).toLocaleString() : '없음') + '</td>' +
-                        '<td>' + e.cancel_type + '</td>' +
-                        '<td>' + e.cancel_status + '</td>' +
-                        '<td>' + e.cancel_reason + '</td>' +
-                        '<td><div class="mt-3">' +
-		                '<button type="button" class="btn rounded-pill btn-outline-primary" onclick = "restractBtn(' + e.cancel_no + ', \'' + e.order_id + '\')">철회 처리</button>' +
-		                '</div></td>' +
-                    '</tr>';
-            });
-                cancelListContainer += '</tbody>';
-                cancelListContainer += '</table>'; 
-            $("#cancelListContainer").html(cancelListContainer);
-        },
-        error: function(error) {
-            console.error(error);
-        }
-    });
-
-    $("#confirmDeleteBtn").off('click').on('click', function() {
-			  let orderProductList = [];
-			  let cancelList = [];
-			  $(".modalOrderProductNo").each(function() {
-				  orderProductList.push($(this).text());  
+			$("#confirmDeleteBtn").off('click').on('click', function() {
+				let orderProductList = [];
+				let cancelList = [];
+				$(".modalOrderProductNo").each(function() {
+					orderProductList.push($(this).text());  
 				});
-			  
-			  $(".modalCancelNo").each(function() {
-				  cancelList.push($(this).text());  
+				$(".modalCancelNo").each(function() {
+		 			cancelList.push($(this).text());  
 				});
-	        console.log(orderProductList);
-	        console.log(cancelList);
-		        $.ajax({
-		            url: '/admin/order/cancelOrder', // 서버 URL
-		            type: 'POST',
-		            contentType: 'application/json' ,
-		            data: JSON.stringify({
-		            	list: orderProductList
-		            }),
-		            success: function(data) {
-		            	$('#toastTitle').text("환불 성공!"); // 토스트 메시지 제목
-		                $('#toastBody').text("환불이 완료되었습니다"); // 토스트 메시지 내용
-		                console.log("=====POST /admin/order/cancelOrder 요청시 돌려받은 data :  ======");
-		                console.log(data)
-		                console.log("=====POST /admin/order/cancelOrder 요청시 돌려받은 data END ======");
-		                var toastElement = $('#toastMessage');
-		                toastElement.removeClass('hide').addClass('show');
-		            	$("#modalToggle2").modal('hide'); // 모달이름
-		            	 setTimeout(function() {
-		            		 toastElement.hide();
-		                   }, 2000);
-		            	
-		                let canelReason = data.cancel_reason.replace(" ", "").trim();
-		                console.log(canelReason);
-		                 if(data.payment_method == 'T') {
-		                	tossCancelRequest(data.payment_module_key, data.cancel_reason, data.paid_amount ,cancelList,data.payment_no,data.cancel_type,data.assigned_point);
-		                } else if (data.payment_method == 'K') {
-		                	kakaopayCancelRequest(data.payment_module_key, canelReason, data.paid_amount, cancelList,data.payment_no,data.cancel_type,data.assigned_point);
-		                } else if (data.payment_method == 'N') {
-		                	naverpayCancelRequest(data.payment_module_key, data.cancel_reason, data.paid_amount, cancelList,data.payment_no,data.cancel_type,data.assigned_point);
-		                }  
-		            },
-		            error: function(error) {
-		                console.error(error); // 에러 시 콘솔에 에러 출력
-		            }
-		        });
-		     });
-    }); 
+				console.log(orderProductList);
+				console.log(cancelList);
+				$.ajax({
+					url: '/admin/order/cancelOrder', // 서버 URL
+					type: 'POST',
+					contentType: 'application/json' ,
+					data: JSON.stringify({
+						list: orderProductList
+					}),
+				    success: function(data) {
+				    	$('#toastTitle').text("환불 성공!"); // 토스트 메시지 제목
+				        $('#toastBody').text("환불이 완료되었습니다"); // 토스트 메시지 내용
+				        console.log("=====POST /admin/order/cancelOrder 요청시 돌려받은 data :  ======");
+				        console.log(data)
+				        console.log("=====POST /admin/order/cancelOrder 요청시 돌려받은 data END ======");
+				        var toastElement = $('#toastMessage');
+				        toastElement.removeClass('hide').addClass('show');
+				    	$("#modalToggle2").modal('hide'); // 모달이름
+						setTimeout(function() {
+						 toastElement.hide();
+						}, 2000);
+			          	
+						let canelReason = data.cancel_reason.replace(" ", "").trim();
+						console.log(canelReason);
+						if(data.payment_method == 'T') {
+							tossCancelRequest(data.payment_module_key, data.cancel_reason, data.paid_amount ,cancelList,data.payment_no,data.cancel_type,data.assigned_point);
+						} else if (data.payment_method == 'K') {
+							kakaopayCancelRequest(data.payment_module_key, canelReason, data.paid_amount, cancelList,data.payment_no,data.cancel_type,data.assigned_point);
+						} else if (data.payment_method == 'N') {
+							naverpayCancelRequest(data.payment_module_key, data.cancel_reason, data.paid_amount, cancelList,data.payment_no,data.cancel_type,data.assigned_point);
+						}  
+					},
+					error: function(error) {
+					    console.error(error); // 에러 시 콘솔에 에러 출력
+					}
+			      }); // ajax end
+			   }); // $("#confirmDeleteBtn").off end
+			});
 		
 		
-		 $("#searchCancel").on('click', function() {
-			 let pageNo = 1;
-			 let pagingSize = 10;
+		$("#searchCancel").on('click', function() {
+			let pageNo = 1;
+			let pagingSize = 10;
 			let cancel_type = $('input[name="cancel_type"]:checked').map(function () {
 				return $(this).val();
 			}).get();
@@ -709,48 +679,40 @@ function showToast(title, content) {
 			        cancel_status: cancel_status,
 			        cancel_apply_date_start: cancel_apply_date_start,
 			        cancel_apply_date_end: cancel_apply_date_end
-			    };
+				};
 			$.ajax({
-				 url: '/admin/order/searchFilter',
-			        type: 'POST',
-			        contentType: 'application/json' ,
-			        data: JSON.stringify(data),
-			    	success: function(data) {
+			 url: '/admin/order/searchFilter',
+		        type: 'POST',
+		        contentType: 'application/json' ,
+		        data: JSON.stringify(data),
+		    	success: function(data) {
 			    	let output = "";
-				    
-
-			        $.each(data.CancelList, function(index, cancel) {
-			        	
- 						let isDisabled = (cancel.cancel_status === '취소 완료' || cancel.cancel_status === '취소 철회') ? 'disabled' : '';
-			            const formattedDate = new Date(cancel.cancel_apply_date).toISOString().slice(0, 10);
-			       
-			        
-			            output += '<tr>' +
-			             
-			                '<td>' + cancel.cancel_no + '</td>' +
-			                '<td>' + cancel.order_product_no + '</td>' +
-			                '<td id="cancelOrderId">' + cancel.order_id + '</td>' +
-			                '<td>' + formattedDate + '</td>' +
-			                '<td>' + (cancel.cancel_complete_date ? new Date(cancel.cancel_complete_date).toLocaleString() : ' ') + '</td>' +
-			                '<td>' + (cancel.cancel_retract_date ? new Date(cancel.cancel_retract_date).toLocaleString() : ' ') +'</td>' +
-			                '<td>' + cancel.cancel_type + '</td>' +
-			                '<td>' + cancel.cancel_status + '</td>' +
-			                '<td>' + cancel.cancel_reason + '</td>' +
-			                '<td><div class="mt-3">' +
-			                '<button type="button" class="btn rounded-pill btn-outline-primary" value="' + cancel.order_id + '" data-bs-toggle="modal" data-bs-target="#modifyCancel"'+ isDisabled +'>환불</button>' +
-			                '</div></td></tr>';
-			        });
-
-			        $("#cancelTableBody").html(output);
-
-			        PageNation(data)
-			    },
-			    error: function(error) {
-			        console.error(error); // 에러가 발생한 경우 콘솔에 에러 출력
-			    }
-			});
-	})
-	});
+			    	$.each(data.CancelList, function(index, cancel) {
+						let isDisabled = (cancel.cancel_status === '취소 완료' || cancel.cancel_status === '취소 철회') ? 'disabled' : '';
+						const formattedDate = new Date(cancel.cancel_apply_date).toISOString().slice(0, 10);
+						output += '<tr>' +
+		                '<td>' + cancel.cancel_no + '</td>' +
+		                '<td>' + cancel.order_product_no + '</td>' +
+		                '<td id="cancelOrderId">' + cancel.order_id + '</td>' +
+		                '<td>' + formattedDate + '</td>' +
+		                '<td>' + (cancel.cancel_complete_date ? new Date(cancel.cancel_complete_date).toLocaleString() : ' ') + '</td>' +
+		                '<td>' + (cancel.cancel_retract_date ? new Date(cancel.cancel_retract_date).toLocaleString() : ' ') +'</td>' +
+		                '<td>' + cancel.cancel_type + '</td>' +
+		                '<td>' + cancel.cancel_status + '</td>' +
+		                '<td>' + cancel.cancel_reason + '</td>' +
+		                '<td><div class="mt-3">' +
+		                '<button type="button" class="btn rounded-pill btn-outline-primary" value="' + cancel.order_id + '" data-bs-toggle="modal" data-bs-target="#modifyCancel"'+ isDisabled +'>환불</button>' +
+		                '</div></td></tr>';
+					});
+	        		$("#cancelTableBody").html(output);
+	        		PageNation(data)
+	    		},
+				error: function(error) {
+				    console.error(error); // 에러가 발생한 경우 콘솔에 에러 출력
+				}
+			}); // ajax end
+		})
+	}); // $(document).ready end
 </script>
 </head>
 <style>

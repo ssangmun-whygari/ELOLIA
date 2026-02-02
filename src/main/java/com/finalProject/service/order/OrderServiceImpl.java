@@ -1,11 +1,5 @@
 package com.finalProject.service.order;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.OutputStream;
-import java.net.HttpURLConnection;
-import java.net.URL;
 import java.sql.Timestamp;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -28,11 +22,13 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.ui.Model;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestTemplate;
 
+import com.finalProject.model.LoginDTO;
 import com.finalProject.model.order.CancelOrderRequestDTO;
 import com.finalProject.model.order.OrderMemberDTO;
 import com.finalProject.model.order.OrderProductDTO;
@@ -41,6 +37,10 @@ import com.finalProject.model.order.OrderRequestDTO;
 import com.finalProject.model.order.PaymentRequestDTO;
 import com.finalProject.model.order.ProductDiscountCalculatedDTO;
 import com.finalProject.model.order.ProductDiscountDTO;
+import com.finalProject.payment.PaymentRequest;
+import com.finalProject.payment.PaymentResult;
+import com.finalProject.payment.PaymentStrategy;
+import com.finalProject.payment.PaymentStrategyFactory;
 import com.finalProject.persistence.order.OrderDAO;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
@@ -50,19 +50,24 @@ public class OrderServiceImpl implements OrderService {
 	@Inject
 	private OrderDAO orderDAO;
 	
+	@Inject
+	PaymentStrategyFactory paymentFactory;
+	
 	private static Gson gson = new Gson();
 	private static RestTemplate restTemplate = new RestTemplate();
 	
-	@Value("${payment.toss.secretKey}")
-	private String tossSecretKey;
-	@Value("${payment.naver.clientId}")
-	private String naverClientId;
-	@Value("${payment.naver.clientSecret}")
-	private String naverClientSecret;
-	@Value("${payment.naverPay.chainId}")
-	private String naverChainId;
-	@Value("${payment.kakao.secretKey}")
-	private String kakaoSecretKey;
+	@Override
+	public void deleteCart(HttpSession session, Model model) {
+		// 장바구니에서 주문한 상품 지우기(회원)
+		LoginDTO loginMember = (LoginDTO) session.getAttribute("loginMember");
+		if (loginMember != null) {
+			String memberId = loginMember.getMember_id();
+			this.deletePaidProductsFromCart(memberId);
+			model.addAttribute("cookieDelete", "false");
+		} else { // 장바구니에서 주문한 상품 지우기(비회원)
+			model.addAttribute("cookieDelete", "delete"); // true로 하면 안된다... 왜지???
+		}
+	}
 
 	@Override
 	public void deleteOrder(String orderId) {
@@ -276,260 +281,51 @@ public class OrderServiceImpl implements OrderService {
 
 	@Override
 	public List<OrderProductDTO> getProductInfo(List<OrderRequestDTO> requestsInfo) {
-
 		return orderDAO.selectProductInfo(requestsInfo);
 	}
 
 	@Override
 	public OrderMemberDTO getMemberInfo(String memberId) {
-
 		return orderDAO.selectMemberInfo(memberId);
 	}
-
+	
 	@Override
-	public Map<String, String> requestApproval(String paymentKey, int amount, String orderId) {
-		String base64SecretKey = Base64.getEncoder().encodeToString((this.tossSecretKey + ":").getBytes());
-		String requestUrl = "https://api.tosspayments.com/v1/payments/confirm";
+	public PaymentResult approvePayment(String paymentType, String paymentKey, String orderId, int amount, String pgToken) {
+		PaymentStrategy strategy = this.paymentFactory.getStrategy(paymentType);
 		
-		HttpHeaders headers = new HttpHeaders();
-		headers.set("Authorization", "Basic " + base64SecretKey);
-		headers.setContentType(MediaType.APPLICATION_JSON);
+		PaymentRequest request = PaymentRequest.builder()
+			.paymentKey(paymentKey)
+			.amount(amount)
+			.orderId(orderId)
+			.pgToken(pgToken)
+			.build();
 		
-		JsonObject root = new JsonObject();
-		root.addProperty("paymentKey", paymentKey);
-		root.addProperty("amount", amount);
-		root.addProperty("orderId", orderId);
-		String jsonBody = gson.toJson(root);
-		
-		HttpEntity<String> requestEntity = new HttpEntity<>(jsonBody, headers);
-		
-		Map<String, String> resultMap = new HashMap<>();
-		try {
-			ResponseEntity<String> response = restTemplate.postForEntity(requestUrl, requestEntity, String.class);
-			resultMap.put("status", response.getStatusCodeValue() + "");
-			resultMap.put("response", response.getBody());
-		} catch (HttpStatusCodeException e) {
-		    resultMap.put("status", e.getRawStatusCode() + "");
-		    resultMap.put("response", e.getResponseBodyAsString());
-		    System.out.println("결제 승인 실패 - HTTP " + e.getRawStatusCode());
-		    e.printStackTrace();
-		    throw e;
-		} catch (Exception e) {
-			resultMap.put("response", null);
-		    System.out.println("결제 승인 실패 - 기타 예외");
-		    e.printStackTrace();
-		    throw new RuntimeException("결제 승인 실패", e);
-		}
-		
-		// TODO : 무통장입금으로 결제방법을 지정하면 응답에
-		// "virtualAccount": {
-		// "accountNumber": "X5909014050733",
-		// "accountType": "일반",
-		// "bankCode": "06",
-		// "customerName": "dsfsdf",
-		// "dueDate": "2024-10-26T15:59:03+09:00",
-		// "expired": false,
-		// "settlementStatus": "INCOMPLETED",
-		// "refundStatus": "NONE",
-		// "refundReceiveAccount": null
-		// },
-		// 이런 데이터가 포함된다. bankCode마다 은행종류 잇으니까 은행 종류하고 입금할 가상계좌번호 결제 완료 뷰페이지에 표시해야 함
-		return resultMap;
+		return strategy.approve(request);
 	}
-
+	
 	@Override
-	public Map<String, String> requestApprovalNaverpayPayment(String paymentId) {
-		String requestUrl = "https://dev-pay.paygate.naver.com/naverpay-partner/naverpay/payments/v2.2/apply/payment";
+	public PaymentResult readyPayment(String paymentType, String orderName, int amount) {
+		PaymentStrategy strategy = this.paymentFactory.getStrategy(paymentType);
 		
-		HttpHeaders headers = new HttpHeaders();
-		headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
-		headers.set("X-Naver-Client-Id", this.naverClientId);
-		headers.set("X-Naver-Client-Secret", this.naverClientSecret);
-		headers.set("X-NaverPay-Chain-Id", this.naverChainId);
-		headers.set("X-NaverPay-Idempotency-Key", UUID.randomUUID().toString());
+		PaymentRequest request = PaymentRequest.builder()
+			.orderName(orderName)
+			.amount(amount)
+			.build();
 		
-		MultiValueMap<String, String> form = new LinkedMultiValueMap<>();
-		form.add("paymentId", paymentId);
-		
-		HttpEntity<MultiValueMap<String, String>> entity = new HttpEntity<>(form, headers);
-		
-		Map<String, String> body = null;
-		try {
-			ResponseEntity<Map> response = this.restTemplate.postForEntity(requestUrl, entity, Map.class);
-			body = response.getBody();
-		} catch (HttpStatusCodeException e) {
-		    System.out.println("네이버페이 결제 승인 실패 - HTTP " + e.getRawStatusCode());
-		    e.printStackTrace();
-		    throw e;
-		} catch (Exception e) {
-		    System.out.println("네이버페이 결제 승인 실패 - 기타 예외 ");
-		    e.printStackTrace();
-		    throw e;
-		}
-		return body;
+		return strategy.ready(request);
 	}
-
-	@Override
-	public Map<String, String> requestApprovalNaverpayCancel(String paymentId, String cancelReason,
-			Integer cancelAmount) {
-		String requestUrl = "https://dev.apis.naver.com/naverpay-partner/naverpay/payments/v1/cancel";
-		HttpHeaders headers = new HttpHeaders();
-		headers.set("X-Naver-Client-Id", this.naverClientId);
-		headers.set("X-Naver-Client-Secret", this.naverClientSecret);
-		headers.set("X-NaverPay-Chain-Id", this.naverChainId);
-		headers.set("X-NaverPay-Idempotency-Key", UUID.randomUUID().toString());
-		headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+	
+    @Override
+	public PaymentResult cancelPayment(String paymentType, String paymentKey, int amount, String cancelReason) {
+		PaymentStrategy strategy = paymentFactory.getStrategy(paymentType);
 		
-		MultiValueMap<String, String> form = new LinkedMultiValueMap<>();
-		form.add("paymentId", paymentId);
-		form.add("cancelAmount", cancelAmount+"");
-		form.add("taxScopeAmount", cancelAmount+"");
-		form.add("taxExScopeAmount", "0");
-		form.add("cancelReason", cancelReason);
-		form.add("cancelRequester", "2");
-		
-		HttpEntity<MultiValueMap<String, String>> entity = new HttpEntity<>(form, headers);
-		
-		Map<String, String> resultMap = new HashMap<>();
-		try {
-			ResponseEntity<String> response = this.restTemplate.postForEntity(requestUrl, entity, String.class);
-			resultMap.put("status", response.getStatusCodeValue() + "");
-			resultMap.put("response", response.getBody());
-		} catch (HttpStatusCodeException e) {
-		    resultMap.put("status", e.getRawStatusCode() + "");
-		    resultMap.put("response", e.getResponseBodyAsString());
-		    System.out.println("네이버페이 결제취소 승인 실패 - HTTP " + e.getRawStatusCode());
-		    e.printStackTrace();
-		    throw e;
-		} catch (Exception e) {
-			resultMap.put("response", null);
-		    System.out.println("네이버페이 결제취소 승인 실패 - 기타 예외 ");
-		    e.printStackTrace();
-		    throw new RuntimeException("결제 승인 실패", e);
-		}
-		
-		return resultMap;
-	}
-
-	@Override
-	public Map<String, String> requestApprovalKakaopayCancel(String paymentId, String cancelReason,
-			Integer cancelAmount) {
-		String requestUrl = "https://open-api.kakaopay.com/online/v1/payment/cancel";
-		
-		HttpHeaders headers = new HttpHeaders();
-		headers.set("Authorization", "SECRET_KEY " + this.kakaoSecretKey);
-		headers.setContentType(MediaType.APPLICATION_JSON);
-		
-		JsonObject root = new JsonObject();
-		root.addProperty("cid", "TC0ONETIME");
-		root.addProperty("tid", paymentId);
-		root.addProperty("cancel_amount", cancelAmount);
-		root.addProperty("cancel_tax_free_amount", 0);
-		String jsonBody = gson.toJson(root);
-		
-		HttpEntity<String> requestEntity = new HttpEntity<>(jsonBody, headers);
-		Map<String, String> resultMap = new HashMap<>();
-		try {
-			ResponseEntity<String> response = restTemplate.postForEntity(requestUrl, requestEntity, String.class);
-			resultMap.put("status", response.getStatusCodeValue() + "");
-			resultMap.put("response", response.getBody());
-		} catch (HttpStatusCodeException e) {
-			resultMap.put("status", e.getRawStatusCode() + "");
-			resultMap.put("response", e.getResponseBodyAsString());
-			System.out.println("카카오페이 결제취소 승인 실패 - HTTP " + e.getRawStatusCode());
-			e.printStackTrace();
-			throw e;
-		} catch (Exception e) {
-			System.out.println("카카오페이 결제취소 승인 실패 - 기타 예외 ");
-			e.printStackTrace();
-			throw e;
-		}
-		return resultMap;
-	}
-
-	@Override
-	public Map<String, String> readyKakaoPay(String name, int amount, HttpServletRequest request) {
-		/* localhost 주소를 사용해도 잘 되지 않나?
-		String baseUrl = String.format("%s://%s:%d%s", request.getScheme(), // http or https
-				request.getServerName(), // localhost or actual server domain
-				request.getServerPort(), // 8080 or actual port
-				request.getContextPath()); // application context
-		System.out.println("baseUrl : " + baseUrl);
-		*/
-		
-		String requestUrl = "https://open-api.kakaopay.com/online/v1/payment/ready";
-		HttpHeaders headers = new HttpHeaders();
-		headers.set("Authorization", "SECRET_KEY" + this.kakaoSecretKey);
-		headers.setContentType(MediaType.APPLICATION_JSON);
-		
-		JsonObject root = new JsonObject();
-		root.addProperty("cid", "TC0ONETIME");
-		root.addProperty("partner_order_id", "partner_order_id");
-		root.addProperty("partner_user_id", "partner_user_id");
-		root.addProperty("item_name", name);
-		root.addProperty("quantity", 1);
-		root.addProperty("total_amount", amount);
-		root.addProperty("vat_amount", 0);
-		root.addProperty("tax_free_amount", 0);
-		root.addProperty("approval_url", "http://localhost:8080/kakaopay_payRequest");
-		root.addProperty("fail_url", "http://localhost:8080/pages/order/orderFail");
-		root.addProperty("cancel_url", "http://localhost:8080/pages/order/orderFail");
-		String jsonBody = gson.toJson(root);
-		
-		HttpEntity<String> requestEntity = new HttpEntity<>(jsonBody, headers); 
-		Map<String, String> resultMap = new HashMap<>();
-		try {
-			ResponseEntity<String> response = restTemplate.postForEntity(requestUrl, requestEntity, String.class);
-			resultMap.put("status", response.getStatusCodeValue() + "");
-			resultMap.put("response", response.getBody());
-		} catch (HttpStatusCodeException e) {
-			resultMap.put("status", e.getRawStatusCode() + "");
-			resultMap.put("response", e.getResponseBodyAsString());
-			System.out.println("카카오페이 결제준비 실패 - HTTP " + e.getRawStatusCode());
-			e.printStackTrace();
-			throw e;
-		} catch (Exception e) {
-			System.out.println("카카오페이 결제취소 승인 실패 - 기타 예외 ");
-			e.printStackTrace();
-			throw e;
-		}
-		return resultMap;
-	}
-
-	@Override
-	public Map<String, String> requestApprovalKakaopayPayment(String tid, String pg_token) {
-		String requestUrl = "https://open-api.kakaopay.com/online/v1/payment/approve";
-		HttpHeaders headers = new HttpHeaders();
-		headers.set("Authorization", "SECRET_KEY" + this.kakaoSecretKey);
-		headers.setContentType(MediaType.APPLICATION_JSON);
-		
-		JsonObject root = new JsonObject();
-		root.addProperty("cid", "TC0ONETIME");
-		root.addProperty("partner_order_id", "partner_order_id");
-		root.addProperty("partner_user_id", "partner_user_id");
-		root.addProperty("tid", tid);
-		root.addProperty("pg_token", pg_token);
-		String jsonBody = gson.toJson(root);
-		
-		HttpEntity<String> requestEntity = new HttpEntity<>(jsonBody, headers); 
-		Map<String, String> resultMap = new HashMap<>();
-		try {
-			ResponseEntity<String> response = restTemplate.postForEntity(requestUrl, requestEntity, String.class);
-			resultMap.put("status", response.getStatusCodeValue() + "");
-			resultMap.put("response", response.getBody());
-		} catch (HttpStatusCodeException e) {
-			resultMap.put("status", e.getRawStatusCode() + "");
-			resultMap.put("response", e.getResponseBodyAsString());
-			System.out.println("카카오페이 결제승인 실패 - HTTP " + e.getRawStatusCode());
-			e.printStackTrace();
-			throw e;
-		} catch (Exception e) {
-			System.out.println("카카오페이 결제승인 실패 - 기타 예외 ");
-			e.printStackTrace();
-			throw e;
-		}
-		return resultMap;
-	}
+		PaymentRequest request = PaymentRequest.builder()
+			.paymentKey(paymentKey)
+			.amount(amount)
+			.cancelReason(cancelReason)
+			.build();
+		return strategy.cancel(request);
+	 }
 
 	@Override
 	public List<OrderProductsDTO> getOrderListOfMember(String memberId) {

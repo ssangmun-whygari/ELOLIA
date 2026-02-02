@@ -2187,7 +2187,8 @@
 				// 그러므로 여기서는 POST 요청으로 서버의 컨트롤러에게 대신 요청을 보내도록 함.
 				// TODO : 보낼 겍체에 필요한 정보 별도로 채워넣기 (주문번호, 가격)
 				let item = {
-					amount: amount.value
+					amount: amount.value,
+					orderName: orderName
 				}
 				
 				// NOTE : ajax 요청은 컨트롤러로부터 응답을 받아도 페이지를 이동시켜주지 않는다. 그래서 success 메서드를 붙어야 함 

@@ -1,6 +1,5 @@
 package com.finalProject.controller.order;
 
-import java.io.IOException;
 import java.lang.reflect.Type;
 import java.net.HttpURLConnection;
 import java.time.LocalDateTime;
@@ -18,7 +17,6 @@ import javax.servlet.http.HttpSession;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -26,10 +24,7 @@ import org.springframework.web.bind.annotation.RequestAttribute;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
-import org.springframework.web.client.RestTemplate;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.finalProject.model.DeliveryDTO;
 import com.finalProject.model.DeliveryVO;
 import com.finalProject.model.LoginDTO;
@@ -40,9 +35,10 @@ import com.finalProject.model.order.OrderProductDTO;
 import com.finalProject.model.order.OrderProductsDTO;
 import com.finalProject.model.order.OrderRequestDTO;
 import com.finalProject.model.order.PaymentRequestDTO;
+import com.finalProject.payment.PaymentResult;
+import com.finalProject.payment.PaymentStrategyFactory;
 import com.finalProject.service.member.MemberService;
 import com.finalProject.service.order.OrderService;
-import com.finalProject.util.RememberPath;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 
@@ -53,7 +49,7 @@ public class OrderController {
 
 	@Inject
 	private MemberService memberService;
-
+	
 	private static  Gson gson = new Gson();
 	
 	@GetMapping("/order")
@@ -250,8 +246,7 @@ public class OrderController {
 	}
 
 	// NOTE : 결제가 성공하면 토스 결제 모듈이 쿼리스트링을 달고 페이지로 보낸다.
-	// 보내주는 페이지의 주소는 자바스크립트에서 successUrl: window.location.origin +
-	// "/payment/success.html" 이런 식으로 설정할 수 있다.
+	// 보내주는 페이지의 주소는 자바스크립트에서 successUrl: window.location.origin + "/payment/success.html" 이런 식으로 설정할 수 있다.
 	@GetMapping("/payment/success")
 	public String payAuthSuccess(
 			@RequestParam("orderId") String orderId,
@@ -276,21 +271,17 @@ public class OrderController {
 			// TODO : 지금 로그인한 유저의 orderId로 orders 테이블 삭제하기, orderProducts의 테이블의 행들도 삭제하기
 			// (입력단에서 다시 테이블 삽입시켜야 함.)
 			// (입력단에서 테이블 삽입할 때 기존 아이디로 orders 테이블에 뭔가 있다면 삭제하고 다시 넣는 처리가 필요할 듯)
-			// TODO : 실패 페이지 깔끔하게 다시 만들어야 함
 			return "/user/pages/order/orderFail";
 		} else {
 			System.out.println("결제 금액 조작 체크 통과");
 		}
 
-		// paymentKey는 토스페이먼츠에서 각 주문에 발급하는 고유 키 값이에요. 결제 승인, 취소, 조회 등에 사용되기 때문에 꼭
-		// 저장해주세요.
 		System.out.println("orderId : " + orderId);
 		System.out.println("paymentKey : " + paymentKey);
 		System.out.println("amount : " + amount);
-		// paymentKey를 DB에 저장(결제취소 등에 쓰임)
 		// NOTE : 트랜잭션 처리 되므로 예외 발생시 결제 키 update가 취소되고 함수가 중지됨.
 		try {
-			orderService.setPaymentModuleKey(orderId, paymentKey);
+			orderService.setPaymentModuleKey(orderId, paymentKey); // paymentKey를 DB에 저장(결제취소 등에 쓰임)
 		} catch (Exception e) {
 			model.addAttribute("message", "잘못된 요청입니다. 다시 한번 시도해주세요.");
 			orderService.deleteOrder(orderId);
@@ -301,38 +292,23 @@ public class OrderController {
 		// TODO : 이 아래의 부분은 트랜잭션 처리해야 함.
 		// NOTE : 오류가 발생 시 현재 로그인된 멤버의 orders 테이블 행을 삭제한다.
 		// 그리고 뷰에서 결제하기 버튼을 누르면 orders 테이블 행을 처음부터 다시 만들어서 삽입한다.
-		// TODO : 시크릿 키, github나 클라이언트에 노출되면 안됨. 시크릿 키를 별도의 파일에 넣어서 관리할 것
 		// TODO : 네이버페이, 카카오페이도 이 트랜잭션 구조로 바뀌어야 함
-		String response;
-		Map<String, String> result;
 		try {
 			System.out.println("결제방법 : " + (String) session.getAttribute("payMethod")); // TODO
 			// DB에 업데이트, 트랜잭션 처리됨.
 			orderService.makePayment(orderId, queryPrice, "T", (String) session.getAttribute("payMethod"), session);
 			// 토스 서버에 결제승인 요청 보냄
-			result = orderService.requestApproval(paymentKey, amount, orderId);
-			response = result.get("response");
+			PaymentResult result = orderService.approvePayment("T", paymentKey, orderId, amount, (String) null);
+			
+			if (result.isSuccess()) {
+				orderService.deleteCart(session, model);
+				return "/user/pages/success"; // 결제 성공
+			} else {
+				throw new RuntimeException("토스페이먼츠 서버에 결제 승인 시도 실패");
+			}
 		} catch (Exception e) {
 			e.printStackTrace();
 			orderService.deleteOrder(orderId); // orders 테이블에서 행 삭제
-			return "/user/pages/order/orderFail"; // 결제 실패
-		}
-
-		Map<String, Object> responseMap = gson.fromJson(response, Map.class); // 응답 JSON문자열을 자바 맵으로 파싱
-		System.out.println("토스서버의 결제승인응답 : " + result);
-		int responseCode = Integer.valueOf(result.get("status"));
-		if (responseCode == HttpURLConnection.HTTP_OK) {
-			// 장바구니에서 주문한 상품 지우기(회원)
-			LoginDTO loginMember = (LoginDTO) session.getAttribute("loginMember");
-			if (loginMember != null) {
-				String memberId = loginMember.getMember_id();
-				orderService.deletePaidProductsFromCart(memberId);
-				model.addAttribute("cookieDelete", "false");
-			} else { // 장바구니에서 주문한 상품 지우기(비회원)
-				model.addAttribute("cookieDelete", "delete"); // true로 하면 안된다... 왜지???
-			}
-			return "/user/pages/success"; // 결제 성공
-		} else {
 			return "/user/pages/order/orderFail"; // 결제 실패
 		}
 	}
@@ -347,11 +323,9 @@ public class OrderController {
 		
 		String orderId = (String) session.getAttribute("orderId");
 		try {
-			// 네이버페이 서버에 결제요청
-			Map<String, String> responseBody = orderService.requestApprovalNaverpayPayment(paymentId);
-			System.out.println("네이버페이 결제승인요청 결과 : " + responseBody);
-			if (!"Success".equals(responseBody.get("code"))) {
-				throw new Exception(responseBody.get("message"));
+			PaymentResult result = orderService.approvePayment("N", paymentId, null, 0, null);
+			if (!result.isSuccess() ) {
+				throw new RuntimeException("네이버페이 서버에 결제 인증 시도 실패");
 			}
 			
 			// 트랜잭션 처리
@@ -363,15 +337,7 @@ public class OrderController {
 					"NAVER_PAY", 
 					session
 				);
-			// 장바구니에서 주문한 상품 지우기(회원)
-			LoginDTO loginMember = (LoginDTO) session.getAttribute("loginMember");
-			if (loginMember != null) {
-				String memberId = loginMember.getMember_id();
-				orderService.deletePaidProductsFromCart(memberId);
-				model.addAttribute("cookieDelete", "false");
-			} else { // 장바구니에서 주문한 상품 지우기(비회원)
-				model.addAttribute("cookieDelete", "delete"); // true로 하면 안된다... 왜지???
-			}
+			orderService.deleteCart(session, model);
 			return "/user/pages/success"; // 결제 성공
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -383,23 +349,21 @@ public class OrderController {
 	// 레퍼런스 :
 	// https://velog.io/@ryuneng2/%EC%B9%B4%EC%B9%B4%EC%98%A4%ED%8E%98%EC%9D%B4-API-%EC%97%B0%EB%8F%99-%ED%8C%9D%EC%97%85%EC%B0%BD%EB%9D%84%EC%9A%B0%EA%B8%B0-%EA%B2%B0%EC%A0%9C%EC%8A%B9%EC%9D%B8-%EA%B5%AC%ED%98%84
 	@PostMapping("/kakaoPay/ready")
-	public ResponseEntity<Map<String, String>> readyKakaoPay(@RequestParam("amount") int amount,
+	public ResponseEntity<Map<String, String>> readyKakaoPay(@RequestParam("amount") int amount, @RequestParam("orderName") String orderName,
 			HttpServletRequest request, HttpSession session) {
 		System.out.println("카카오페이 결제창 요청");
-		// TODO : 주문의 상품들 이름 요약해서 (예 : 티셔츠 외) 받기
-		Map<String, String> responseMap = orderService.readyKakaoPay("목걸이 외", amount, request);
-		String jsonString = responseMap.get("response");
-		Gson gson = new Gson();
-		Map<String, Object> jsonMap = gson.fromJson(jsonString, Map.class);
-		// NOTE : 무조건 PC로부터 사이트를 접속한다고 가정
-		String paymentURL = (String) jsonMap.get("next_redirect_pc_url");
-		// 카카오페이 개발자센터 예제 코드 참조 :
-		// https://developers.kakaopay.com/docs/payment/online/reference#sample-source
-		System.out.println("paymentURL : " + paymentURL);
-		String tid = (String) jsonMap.get("tid"); // tid는 카카오페이가 발급하는 고유 주문번호이다.
-		System.out.println("tid : " + tid);
-		String orderId = (String) session.getAttribute("orderId");
+		System.out.println(String.format("amount : %d, orderName : %s", amount, orderName));
+		String orderId = String.valueOf(session.getAttribute("orderId"));
 		try {
+			PaymentResult result = orderService.readyPayment("K", orderName, amount);
+			
+			Map<String, Object> responseMap = gson.fromJson(result.getRawResponse(), Map.class);
+			// NOTE : 무조건 PC로부터 사이트를 접속한다고 가정
+			String paymentURL = String.valueOf(responseMap.get("next_redirect_pc_url"));
+			System.out.println("paymentURL : " + paymentURL);
+			String tid = String.valueOf(responseMap.get("tid"));
+			System.out.println("tid : " + tid);
+			
 			orderService.setPaymentModuleKey(orderId, tid);
 			Map<String, String> outputResponseMap = new HashMap<>();
 			outputResponseMap.put("result", "success");
@@ -413,14 +377,6 @@ public class OrderController {
 			outputResponseMap.put("result", "fail");
 			return new ResponseEntity<Map<String, String>>(outputResponseMap, HttpStatus.BAD_REQUEST);
 		}
-	}
-
-	// NOTE : ajax로 "/user/kakaoPay/ready" 요청을 보내기 때문에 pc_kakaopay_ready.jsp를 바로 못
-	// 보여준다. 따라서 이 방법을 썼다.
-	// TODO : 이 메소드 삭제해도 될 듯
-	@GetMapping("/pc_kakaopay_ready")
-	public String showKakaoPayReadyPage() {
-		return "/user/pages/order/pc_kakaopay_ready"; // TODO 쿼리스트링으로 URL 붙이면 될 듯?
 	}
 
 	@GetMapping("/kakaopay_payRequest")
@@ -439,15 +395,19 @@ public class OrderController {
 			Model model
 			) {
 		System.out.println("payRequestForKakaopay에서 requestData : " + requestData);
-
-		// 카카오서버에 결제 승인 요청
-		Map<String, String> responseMap = orderService.requestApprovalKakaopayPayment((String) requestData.get("tid"),
-				(String) requestData.get("pg_token"));
+		
+		PaymentResult result = orderService.approvePayment(
+			"K", // 코드, 카카오페이를 나타냄
+			(String) requestData.get("tid"), // paymentKey
+			null, // orderid, 사용되지 않음
+			0, // amount, 사용되지 않음
+			(String) requestData.get("pg_token")
+		);
+		
 		Map<String, String> outputResponseMap = new HashMap<>();
 		String orderId = (String) session.getAttribute("orderId");
-
-		if (responseMap.get("httpResponseCode").equals("200")) {
-			try {
+		try {
+			if (result.isSuccess()) {
 				orderService.makePayment(
 						orderId,
 						orderService.getExpectedTotalPrice(orderId),
@@ -455,24 +415,14 @@ public class OrderController {
 						"KAKAO_PAY", 
 						session
 					);
-				// 장바구니에서 주문한 상품 지우기(회원)
-				LoginDTO loginMember = (LoginDTO) session.getAttribute("loginMember");
-				if (loginMember != null) {
-					String memberId = loginMember.getMember_id();
-					orderService.deletePaidProductsFromCart(memberId);
-					model.addAttribute("cookieDelete", "false");
-				} else { // 장바구니에서 주문한 상품 지우기(비회원)
-					model.addAttribute("cookieDelete", "delete"); // true로 하면 안된다... 왜지???
-				}
+				orderService.deleteCart(session, model);
 				outputResponseMap.put("result", "success");
 				return new ResponseEntity<Map<String, String>>(outputResponseMap, HttpStatus.OK);
-			} catch (Exception e) {
-				e.printStackTrace();
-				outputResponseMap.put("result", "fail");
-				orderService.deleteOrder(orderId); // orders 테이블에서 행 삭제
-				return new ResponseEntity<Map<String, String>>(outputResponseMap, HttpStatus.BAD_REQUEST);
+			} else {
+				throw new RuntimeException("카카오페이 서버에 결제 승인 시도 실패");
 			}
-		} else {
+		} catch (Exception e) {
+			e.printStackTrace();
 			outputResponseMap.put("result", "fail");
 			orderService.deleteOrder(orderId); // orders 테이블에서 행 삭제
 			return new ResponseEntity<Map<String, String>>(outputResponseMap, HttpStatus.BAD_REQUEST);
@@ -539,7 +489,6 @@ public class OrderController {
 		}
 	}
 	
-	
 	@GetMapping("/order/tossSecretKey")
 	public ResponseEntity<Map<String, String>> getTossSecretKey() {
 		// TODO : admin만 이 API에 접근할 수 있게 막아야 함
@@ -550,8 +499,31 @@ public class OrderController {
 		return ResponseEntity.ok(resultMap);
 	}
 	
+	@PostMapping("/order/tossPaymentsCancel")
+	public ResponseEntity<Map<String, String>> cancelTossPayments(@RequestBody Map<String, String> requestMap) {
+		System.out.println("/order/tossPaymentsCancel 호출");
+		System.out.println("requestMap : " + requestMap);
+		Integer cancelAmount = null;
+		if (requestMap.get("cancelAmount") != null) {
+			cancelAmount = Integer.valueOf(requestMap.get("cancelAmount"));
+		}
+		String cancelReason = requestMap.get("cancelReason");
+		String paymentKey = requestMap.get("paymentKey");
+		PaymentResult result = orderService.cancelPayment("T", paymentKey, cancelAmount, cancelReason);
+		System.out.println(result);
+		Map<String, String> resultMap = new HashMap<>();
+		resultMap.put("status", String.valueOf(result.getStatusCode()));
+		resultMap.put("response", result.getRawResponse());
+		if (result.isSuccess()) {
+			return ResponseEntity.ok(resultMap);
+		} else {
+			return new ResponseEntity<Map<String, String>>(resultMap, HttpStatus.valueOf(result.getStatusCode()));
+		}
+	}
+	
 	@PostMapping("/order/NaverPayCancel")
 	public ResponseEntity<Map<String, String>> cancelNaverPay(@RequestBody Map<String, String> requestMap) {
+		System.out.println("/order/NaverPayCancel 호출");
 		// TODO : admin만 이 API에 접근할 수 있게 막아야 함
 		String paymentId = requestMap.get("paymentId");
 		Integer cancelAmount = null;
@@ -559,15 +531,25 @@ public class OrderController {
 			cancelAmount = Integer.valueOf(requestMap.get("amount"));
 		}
 		String cancelReason = requestMap.get("cancelReason");
-		Map<String, String> resultMap = orderService.requestApprovalNaverpayCancel(paymentId, cancelReason,
-				cancelAmount);
-		return ResponseEntity.ok(resultMap);
+		
+		PaymentResult result = orderService.cancelPayment("N", paymentId, cancelAmount, cancelReason);
+		System.out.println(result);
+		Map<String, String> resultMap = new HashMap<>();
+		resultMap.put("status", String.valueOf(result.getStatusCode()));
+		resultMap.put("response", result.getRawResponse());
+		if (result.isSuccess()) {
+			return ResponseEntity.ok(resultMap);
+		} else {
+			return new ResponseEntity<Map<String, String>>(resultMap, HttpStatus.valueOf(result.getStatusCode()));
+		}
+//		Map<String, String> resultMap = orderService.requestApprovalNaverpayCancel(paymentId, cancelReason,
+//				cancelAmount);
+//		return ResponseEntity.ok(resultMap);
 	}
 	
 	@PostMapping("/order/KakaoPayCancel")
-	public ResponseEntity<Map<String, String>> cancelKaKaoPay(
-			@RequestBody Map<String, String> requestMap
-		) {
+	public ResponseEntity<Map<String, String>> cancelKaKaoPay(@RequestBody Map<String, String> requestMap) {
+		System.out.println("/order/KakaoPayCancel 호출");
 		// TODO : admin만 이 API에 접근할 수 있게 막아야 함
 		String paymentId = requestMap.get("paymentId");
 		Integer cancelAmount = null;
@@ -575,8 +557,19 @@ public class OrderController {
 			cancelAmount = Integer.valueOf(requestMap.get("amount"));
 		}
 		String cancelReason = requestMap.get("cancelReason");
-		Map<String, String> resultMap = orderService.requestApprovalKakaopayCancel(paymentId, cancelReason, cancelAmount);
-		return ResponseEntity.ok(resultMap);
+		
+		PaymentResult result = orderService.cancelPayment("K", paymentId, cancelAmount, cancelReason);
+		System.out.println(result);
+		Map<String, String> resultMap = new HashMap<>();
+		resultMap.put("status", String.valueOf(result.getStatusCode()));
+		resultMap.put("response", result.getRawResponse());
+		if (result.isSuccess()) {
+			return ResponseEntity.ok(resultMap);
+		} else {
+			return new ResponseEntity<Map<String, String>>(resultMap, HttpStatus.valueOf(result.getStatusCode()));
+		}
+//		Map<String, String> resultMap = orderService.requestApprovalKakaopayCancel(paymentId, cancelReason, cancelAmount);
+//		return ResponseEntity.ok(resultMap);
 	}
 	
 	@GetMapping("/orderByNonMemberPage")
@@ -609,7 +602,6 @@ public class OrderController {
 	public void getOrderPageOfNonMember() {
 		// working...
 		// TODO : 세션의 requestByNonMember
-		
 	}
 	
 	@GetMapping("/cancelAPItest")
